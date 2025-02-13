@@ -7,9 +7,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const { ACCOUNT_SID, AUTH_TOKEN, TWILIO_PHONE, TWILIO_WHATSAPP } = process.env;
+const { ACCOUNT_SID, AUTH_TOKEN, TWILIO_PHONE } = process.env;
 
-if (!ACCOUNT_SID || !AUTH_TOKEN || !TWILIO_PHONE || !TWILIO_WHATSAPP) {
+if (!ACCOUNT_SID || !AUTH_TOKEN || !TWILIO_PHONE) {
   console.error('❌ Missing Twilio environment variables!');
   process.exit(1);
 }
@@ -30,25 +30,13 @@ app.post('/send-sos', async (req, res) => {
   const message = `🚨 Emergency! Help needed. Location: https://maps.google.com/?q=${location.latitude},${location.longitude}`;
 
   try {
-    await Promise.all(
-      contacts.map((number) =>
-        client.messages.create({ body: message, from: TWILIO_PHONE, to: number })
-      )
-    );
+    await Promise.all(contacts.map((number) =>
+      client.messages.create({ body: message, from: TWILIO_PHONE, to: number })
+    ));
 
-    await Promise.all(
-      contacts.map((number) =>
-        client.messages.create({
-          body: message,
-          from: `whatsapp:${TWILIO_WHATSAPP}`,
-          to: `whatsapp:${number}`,
-        })
-      )
-    );
-
-    res.json({ success: true, message: 'SMS and WhatsApp messages sent successfully!' });
+    res.json({ success: true, message: 'SMS sent successfully!' });
   } catch (error) {
-    console.error('❌ Error sending messages:', error);
+    console.error('❌ Error sending SMS:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
