@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); // Load environment variables
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -7,26 +7,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Load environment variables
+// Load environment variables from .env file
 const { 
   BREVO_API_KEY, EXOTEL_SID, EXOTEL_TOKEN, EXOTEL_VIRTUAL_NUMBER 
 } = process.env;
 
-// ❌ Check if any required environment variable is missing
+// Ensure that required environment variables are loaded
 if (!BREVO_API_KEY || !EXOTEL_SID || !EXOTEL_TOKEN || !EXOTEL_VIRTUAL_NUMBER) {
   console.error('❌ Missing required environment variables!');
-  process.exit(1);
+  process.exit(1); // Exit the application if any variable is missing
 }
 
+// POST endpoint to send SOS via SMS & Voice Calls
 app.post('/send-sos', async (req, res) => {
   const { contacts, location } = req.body;
 
-  // Validate contacts list
+  // Validate the contacts list
   if (!Array.isArray(contacts) || contacts.length === 0) {
     return res.status(400).json({ success: false, message: 'Invalid contacts list' });
   }
 
-  // Validate location data
+  // Validate the location data
   if (!location || !location.latitude || !location.longitude) {
     return res.status(400).json({ success: false, message: 'Invalid location data' });
   }
@@ -34,15 +35,16 @@ app.post('/send-sos', async (req, res) => {
   const message = `🚨 EMERGENCY! HELP NEEDED 🚨\nLocation: https://maps.google.com/?q=${location.latitude},${location.longitude}`;
 
   try {
-    // ✅ Send SMS via Brevo API (without sender ID)
+    // Send SMS via Brevo API
     const brevoAuth = `Bearer ${BREVO_API_KEY}`;
-    
+
     await Promise.all(contacts.map(async (number) => {
       const smsData = {
-        to: number, // Recipient's phone number
-        content: message
+        to: number,  // Recipient's phone number
+        content: message  // Message content
       };
 
+      // Send the SMS
       await axios.post('https://api.brevo.com/v3/sms/send', smsData, {
         headers: {
           'Authorization': brevoAuth,
@@ -50,21 +52,25 @@ app.post('/send-sos', async (req, res) => {
         }
       });
     }));
+
     console.log('✅ SMS sent via Brevo API!');
 
-    // ✅ Exotel Authentication (Basic Auth Header)
+    // Exotel Authentication (Base64 encoded SID and Token)
     const authHeader = Buffer.from(`${EXOTEL_SID}:${EXOTEL_TOKEN}`).toString('base64');
 
-    // ✅ Trigger voice calls via Exotel
+    // Trigger emergency voice calls via Exotel
     await Promise.all(contacts.map(async (number) => {
       const url = `https://api.exotel.com/v1/Accounts/${EXOTEL_SID}/Calls/connect`;
+
+      // Data for initiating the voice call
       const callData = new URLSearchParams({
         From: EXOTEL_VIRTUAL_NUMBER,  // The Exotel number initiating the call
-        To: number,                   // Recipient number
-        CallerId: EXOTEL_VIRTUAL_NUMBER,  // Same Exotel number for CallerId
-        Url: `https://your-server.com/exotel-call-xml`  // Ensure this is a publicly accessible XML endpoint!
+        To: number,  // Recipient number
+        CallerId: EXOTEL_VIRTUAL_NUMBER,  // Caller ID, same Exotel number
+        Url: `https://your-server.com/exotel-call-xml`  // Replace with your actual XML endpoint
       });
 
+      // Send the POST request to Exotel API to trigger the call
       await axios.post(url, callData, {
         headers: {
           'Authorization': `Basic ${authHeader}`,
@@ -72,14 +78,19 @@ app.post('/send-sos', async (req, res) => {
         }
       });
     }));
+
     console.log('✅ Emergency voice calls initiated!');
 
-    // Send success response
+    // Send a success response
     res.json({ success: true, message: 'SOS sent via SMS & voice calls!' });
   } catch (error) {
+    // Handle any errors that occurred during the process
     console.error('❌ Error sending SOS:', error.response?.data || error.message);
-    res.status(500).json({ success: false, error: error.message });
+
+    // Send an error response with the message from the error
+    res.status(500).json({ success: false, error: error.response?.data || error.message });
   }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('🚀 Server running...'));
+// Start the Express server
+app.listen(process.env.PORT || 3000, () => console.log('🚀 Server running on port 3000...'));
