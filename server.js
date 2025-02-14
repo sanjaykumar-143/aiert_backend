@@ -9,16 +9,16 @@ app.use(express.json());
 
 // Load environment variables from .env file
 const { 
-  BREVO_API_KEY, EXOTEL_SID, EXOTEL_TOKEN, EXOTEL_VIRTUAL_NUMBER 
+  EXOTEL_SID, EXOTEL_TOKEN, EXOTEL_VIRTUAL_NUMBER 
 } = process.env;
 
 // Ensure that required environment variables are loaded
-if (!BREVO_API_KEY || !EXOTEL_SID || !EXOTEL_TOKEN || !EXOTEL_VIRTUAL_NUMBER) {
+if (!EXOTEL_SID || !EXOTEL_TOKEN || !EXOTEL_VIRTUAL_NUMBER) {
   console.error('❌ Missing required environment variables!');
   process.exit(1); // Exit the application if any variable is missing
 }
 
-// POST endpoint to send SOS via SMS & Voice Calls
+// POST endpoint to send SOS via Voice Calls
 app.post('/send-sos', async (req, res) => {
   const { contacts, location } = req.body;
 
@@ -32,29 +32,7 @@ app.post('/send-sos', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid location data' });
   }
 
-  const message = `🚨 EMERGENCY! HELP NEEDED 🚨\nLocation: https://maps.google.com/?q=${location.latitude},${location.longitude}`;
-
   try {
-    // Send SMS via Brevo API
-    const brevoAuth = `Bearer ${BREVO_API_KEY}`;
-
-    await Promise.all(contacts.map(async (number) => {
-      const smsData = {
-        to: number,  // Recipient's phone number
-        content: message  // Message content
-      };
-
-      // Send the SMS
-      await axios.post('https://api.brevo.com/v3/sms/send', smsData, {
-        headers: {
-          'Authorization': brevoAuth,
-          'Content-Type': 'application/json'
-        }
-      });
-    }));
-
-    console.log('✅ SMS sent via Brevo API!');
-
     // Exotel Authentication (Base64 encoded SID and Token)
     const authHeader = Buffer.from(`${EXOTEL_SID}:${EXOTEL_TOKEN}`).toString('base64');
 
@@ -82,7 +60,7 @@ app.post('/send-sos', async (req, res) => {
     console.log('✅ Emergency voice calls initiated!');
 
     // Send a success response
-    res.json({ success: true, message: 'SOS sent via SMS & voice calls!' });
+    res.json({ success: true, message: 'SOS sent via voice calls!' });
   } catch (error) {
     // Handle any errors that occurred during the process
     console.error('❌ Error sending SOS:', error.response?.data || error.message);
